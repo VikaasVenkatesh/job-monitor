@@ -1,0 +1,37 @@
+name: Job Monitor
+# Cisco/Cognizant new-role checker. Triggered on a weekday cron + manual dispatch.
+
+# Runs the Cisco/Cognizant role checker on a free schedule and commits the
+# updated seen_jobs.json so new roles surface in the Actions log each run.
+
+on:
+  schedule:
+    - cron: "0 13 * * 1-5"   # 13:00 UTC, weekdays (~8-9am US Eastern)
+  workflow_dispatch: {}        # lets you trigger it manually too
+
+# Allow the scheduled run to commit the updated seen_jobs.json back to the repo.
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - run: pip install -r requirements.txt
+
+      - name: Check for new roles
+        run: python job_monitor.py
+
+      - name: Persist seen jobs
+        run: |
+          git config user.name "job-monitor-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add seen_jobs.json
+          git commit -m "Update seen jobs [skip ci]" || echo "No changes"
+          git push || echo "Nothing to push"
